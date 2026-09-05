@@ -871,7 +871,14 @@ export async function forwardFetchResponse(from, to, request = null, onDisconnec
             }
         });
 
-        from.body.pipe(to);
+        // SillyBunny: splice in the prompt-log tap.
+        const promptLogTap = request?.promptLog?.tapStream?.();
+        if (promptLogTap) {
+            from.body.pipe(promptLogTap);
+            promptLogTap.pipe(to);
+        } else {
+            from.body.pipe(to);
+        }
 
         to.on('close', function () {
             stopPolling();

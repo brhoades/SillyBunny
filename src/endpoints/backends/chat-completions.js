@@ -63,6 +63,7 @@ import {
 } from '../../prompt-converters.js';
 import { applyReasoningEffortNormalization, toWireReasoningEffort } from '../../reasoning-effort.js';
 import { isBunRuntime } from '../../runtime.js';
+import { attachPromptLog } from '../../prompt-log.js';
 
 import { readSecret, SECRET_KEYS } from '../secrets.js';
 import {
@@ -293,6 +294,9 @@ function formatVerboseGenerationPayload(payload) {
 }
 
 function logVerboseGenerationRequest(provider, request, payload) {
+    // SillyBunny: hook for custom logging.
+    request.promptLog?.upstream(provider, payload);
+
     if (!request.body.log_prompts) {
         return;
     }
@@ -2876,6 +2880,15 @@ export async function handleChatCompletionsGenerate(request, response) {
         }
 
         console.log(`[ChatCompletions] generate: type=${request.body.type} source=${request.body.chat_completion_source} model=${request.body.model} stream=${request.body.stream}`);
+
+        // SillyBunny: hook for custom logging.
+        attachPromptLog(request, response, {
+            api: request.body.chat_completion_source,
+            model: request.body.model,
+            stream: request.body.stream,
+            messages: request.body.messages,
+            body: request.body,
+        });
 
         const postProcessingType = request.body.custom_prompt_post_processing;
         if (Array.isArray(request.body.messages) && postProcessingType) {

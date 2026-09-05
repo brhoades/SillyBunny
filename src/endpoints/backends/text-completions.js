@@ -15,6 +15,7 @@ import {
 import { abortOnRequestClose, forwardFetchResponse, trimV1, getConfigValue, pollStreamingRequestConnection, summarizeLlmPayloadForLog } from '../../util.js';
 import { getResumableGeneration } from '../../resumable-generations.js';
 import { setAdditionalHeaders } from '../../additional-headers.js';
+import { attachPromptLog } from '../../prompt-log.js';
 import { createHash } from 'node:crypto';
 
 export const router = express.Router();
@@ -341,6 +342,15 @@ export async function handleTextCompletionsGenerate(request, response) {
         const apiType = request.body.api_type;
         const baseUrl = request.body.api_server;
         console.debug('Text completion request:', summarizeLlmPayloadForLog(request.body));
+
+        // SillyBunny: hook for custom logging.
+        attachPromptLog(request, response, {
+            api: apiType,
+            model: request.body.model,
+            stream: request.body.stream,
+            prompt: request.body.prompt,
+            body: request.body,
+        });
 
         const controller = new AbortController();
         abortOnRequestClose(request, controller, response, {

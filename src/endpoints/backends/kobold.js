@@ -5,6 +5,7 @@ import fetch from 'node-fetch';
 import { abortOnRequestClose, forwardFetchResponse, delay, summarizeLlmPayloadForLog } from '../../util.js';
 import { getOverrideHeaders, setAdditionalHeaders, setAdditionalHeadersByType } from '../../additional-headers.js';
 import { TEXTGEN_TYPES } from '../../constants.js';
+import { attachPromptLog } from '../../prompt-log.js';
 
 export const router = express.Router();
 
@@ -83,6 +84,15 @@ router.post('/generate', async function (request, response_generate) {
     }
 
     console.debug('Kobold request:', summarizeLlmPayloadForLog(this_settings));
+
+    // SillyBunny: hook for custom logging.
+    attachPromptLog(request, response_generate, {
+        api: 'kobold',
+        model: request.body.model,
+        stream: request.body.streaming,
+        prompt: request_prompt,
+        body: this_settings,
+    });
     const args = {
         body: JSON.stringify(this_settings),
         headers: Object.assign(

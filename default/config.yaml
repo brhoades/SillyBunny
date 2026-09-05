@@ -189,6 +189,24 @@ logging:
   enableAccessLog: true
   # Minimum log level to display in the terminal (DEBUG = 0, INFO = 1, WARN = 2, ERROR = 3)
   minLogLevel: 1
+  # Per-generation prompt logging. These are read once at startup; changes need a restart.
+  # Console output for each generation:
+  # * "none": print nothing
+  # * "header": one line for the request and one for the response (default)
+  # * "preview": also print a truncated prompt and response body
+  promptConsole: header
+  # Characters of prompt/response shown by the "preview" mode
+  promptPreviewChars: 600
+  promptFile:
+    # Append a structured JSONL record per generation to <dataRoot>/<directory>/prompts.jsonl.
+    # Credentials are redacted, but prompt text is stored in full.
+    enabled: true
+    # Directory for prompt logs, relative to the data root
+    directory: logs
+    # Rotate the log once it reaches this size
+    maxFileSize: 32mb
+    # Number of rotated files to keep
+    maxFiles: 10
 # -- RATE LIMITING CONFIGURATION --
 rateLimiting:
   # Use any of the enabled headers in the `forwardedHeaders` section to identify the client IP for rate limiting.

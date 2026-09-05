@@ -414,6 +414,35 @@ This ledger tracks intentional SillyBunny divergence in upstream-origin files. I
 | Last reviewed | 2026-07-28 pre-release audit. |
 | Owner | Account and release integrator. |
 
+### `src/util.js` - prompt log stream tap
+| Field | Value |
+| --- | --- |
+| File | `src/util.js`. |
+| Area | Generation logging. |
+| Divergence reason | Streamed generations must be observable by the prompt log without changing `forwardFetchResponse`'s signature, whose positional `request`/`onDisconnect` slots are already taken and which has 15 call sites across five endpoint modules. |
+| Target seam | `src/prompt-log.js`. |
+| Adapter shape | Read the tap off the request that `forwardFetchResponse` already receives (`request?.promptLog?.tapStream?.()`) and splice it between `from.body` and `to`. Do not add a `tap` parameter; do not touch call sites. |
+| Protecting tests | `tests/prompt-log-wiring.test.js`, `tests/prompt-log.test.js`. |
+| Validation | `npm run test:unit --prefix tests -- prompt-log.test.js prompt-log-wiring.test.js request-cancellation.test.js`, `node --check src/util.js`, `npm run lint`, plus a Node/Bun parity run of the tap. |
+| Rollback path | Restore the single `from.body.pipe(to)` line; the prompt log then records non-streamed exchanges only. |
+| Last reviewed | 2026-09-05 initial port. |
+| Owner | Generation lifecycle integrator. |
+
+### Generation backends - structured prompt logging
+| Field | Value |
+| --- | --- |
+| File | `src/endpoints/backends/chat-completions.js`, `src/endpoints/backends/text-completions.js`, `src/endpoints/backends/kobold.js`, `default/config.yaml`. |
+| Area | Generation logging. |
+| Divergence reason | SillyBunny records one structured, credential-redacted log per generation (console header plus optional JSONL sink) instead of relying on scattered `console.debug` payload dumps. The existing `log_prompts` client dump answers a different question and is kept unchanged. |
+| Target seam | `src/prompt-log.js`. |
+| Adapter shape | Exactly one `attachPromptLog(request, response, ...)` per generate handler, and one ungated `request.promptLog?.upstream(provider, payload)` inside `logVerboseGenerationRequest`. Provider branches get no logging calls of their own: `attachPromptLog` wraps `response.send`/`json`/`end` to close the log out, which is why 14 provider paths cost one hunk. Keep the `log_prompts` gate and its console dump intact. |
+| Protecting tests | `tests/prompt-log.test.js`, `tests/prompt-log-wiring.test.js`, `tests/openai-prompt-logging-wiring.test.js`. |
+| Validation | `npm run test:unit --prefix tests -- prompt-log.test.js prompt-log-wiring.test.js openai-prompt-logging-wiring.test.js`, `node --check` on the three backends, `npm run lint`. |
+| Rollback path | Remove the `attachPromptLog` calls and the `upstream` line; `src/prompt-log.js` and its tests can then be deleted without touching provider logic. |
+| Last reviewed | 2026-09-05 initial port. |
+| Owner | Generation lifecycle integrator. |
+| Notes | `handleChatCompletionsGenerate` is also reused by the Conversation REST API, so those generations are logged too. Console defaults to `header` rather than `preview` because `src/server-log-buffer.js` keeps one ring-buffer entry per line. |
+
 ### World Info files - shell integration and safe persistence
 | Field | Value |
 | --- | --- |
