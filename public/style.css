@@ -571,6 +571,7 @@ input[type='checkbox']:focus-visible {
 .mes_bias:empty,
 .mes:not(.reasoning) .mes_reasoning_details,
 .mes_reasoning_details:not([open]) .mes_reasoning_actions,
+.mes_reasoning_details:not([open]) .mes_reasoning,
 .mes_reasoning_details:has(.reasoning_edit_textarea) .mes_reasoning,
 .mes_reasoning_details:has(.reasoning_edit_textarea) .mes_reasoning_header,
 .mes_reasoning_details:has(.reasoning_edit_textarea) .mes_reasoning_actions .mes_button:not(.edit_button),

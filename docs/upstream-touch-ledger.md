@@ -526,6 +526,20 @@ This ledger tracks intentional SillyBunny divergence in upstream-origin files. I
 | Last reviewed | 2026-07-28 pre-release audit. |
 | Owner | UI and localization integrator. |
 
+### `public/style.css` - collapsed reasoning and browser find-in-page
+| Field | Value |
+| --- | --- |
+| File | `public/style.css`. |
+| Area | Reasoning display and accessibility styling. |
+| Divergence reason | `display: none` on collapsed reasoning keeps Chromium's find-in-page from auto-expanding and matching it. |
+| Target seam | None needed; one selector added to the existing collapsed-reasoning `display: none` group. |
+| Adapter shape | Keep `.mes_reasoning_details:not([open]) .mes_reasoning` in the shared group beside `.mes_reasoning_actions`; do not introduce a separate rule or a `max-height`/`content-visibility` variant. |
+| Protecting tests | `tests/reasoning-find-in-page.test.js`. |
+| Validation | `npm run test:unit --prefix tests -- reasoning-find-in-page.test.js`, `npm run check:frontend-budgets`, `npm run lint`. |
+| Rollback path | Remove the single selector from the group; collapsed reasoning returns to upstream find-in-page behavior. |
+| Last reviewed | 2026-09-05 initial port. |
+| Owner | UI and mobile shell integrator. |
+
 ### Upstream CSS surfaces and compatibility styling
 | Field | Value |
 | --- | --- |
