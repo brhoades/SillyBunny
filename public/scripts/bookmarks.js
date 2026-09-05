@@ -41,6 +41,7 @@ import {
     getUniqueName,
     isTrueBoolean,
 } from './utils.js';
+import { buildBranchName } from './chat-branch-names.js';
 
 const bookmarkNameToken = 'Checkpoint #';
 
@@ -208,13 +209,6 @@ export async function createBranch(mesId, { swipeId = null } = {}) {
         return;
     }
 
-    function buildBranchName(name, i) {
-        // Strip off existing suffixes, then build new name
-        let cleanName = name.replace(/ - Branch #\d+$/, '');
-        // Strip off legacy old name prefix too
-        cleanName = cleanName.replace(/^Branch #\d+ - /, '');
-        return `${cleanName} - Branch #${i}`;
-    }
     const existingChats = await getExistingChatNames();
     const name = getUniqueName(mainChatName, (x) => existingChats.includes(x), { nameBuilder: buildBranchName });
     if (!name) {

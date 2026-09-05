@@ -526,6 +526,21 @@ This ledger tracks intentional SillyBunny divergence in upstream-origin files. I
 | Last reviewed | 2026-07-28 pre-release audit. |
 | Owner | UI and localization integrator. |
 
+### `public/scripts/bookmarks.js` - branch naming
+| Field | Value |
+| --- | --- |
+| File | `public/scripts/bookmarks.js`. |
+| Area | Chat lifecycle. |
+| Divergence reason | Episode-titled chats (`Show S4E01`) branch into takes (`Show S4E01.1`) instead of upstream's ` - Branch #N`; other names keep upstream behavior. |
+| Target seam | `public/scripts/chat-branch-names.js`. |
+| Adapter shape | Keep `createBranch()` as the upstream-origin adapter; it imports `buildBranchName` and passes it to `getUniqueName` as `nameBuilder`. All naming rules, including the upstream ` - Branch #N` fallback, live in the seam module. |
+| Protecting tests | `tests/chat-branch-names.test.js`. |
+| Validation | `npm run test:unit --prefix tests -- chat-branch-names.test.js`, `node --check public/scripts/bookmarks.js`, `npm run lint`, `npm run check:frontend-budgets`. |
+| Rollback path | Restore the nested `buildBranchName` helper in `createBranch()` and drop the import; the seam module and its tests can be deleted independently. |
+| Last reviewed | 2026-09-05 initial port. |
+| Owner | Chat lifecycle integrator. |
+| Notes | `getBookmarkName()` still has a near-identical `buildCheckpointName` twin using `Checkpoint #`. It was intentionally left untouched; unify it into the seam if checkpoint naming ever diverges too. |
+
 ### `public/style.css` - collapsed reasoning and browser find-in-page
 | Field | Value |
 | --- | --- |
