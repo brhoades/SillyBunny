@@ -138,6 +138,13 @@ import {
     stripHtmlTagsFromContext,
     stripOocBlocksFromContext,
 } from './scripts/ooc-blocks.js';
+import {
+    initOocNotes,
+    markOocNotes,
+    renderOocNotes,
+    resolveOocNotes,
+    sendsAfter,
+} from './scripts/macros/ooc-notes.js';
 
 import {
     generateNovelWithStreaming,
@@ -3736,6 +3743,10 @@ export function messageFormatting(mes, ch_name, isSystem, isUser, messageId, san
     isSystem = preparedMessage.isSystem;
     mesForShowdownParse = preparedMessage.showdownSource;
 
+    if (!isSystem && !isReasoning) {
+        mes = markOocNotes(mes, isUser, messageId);
+    }
+
     if (power_user.auto_fix_generated_markdown) {
         mes = fixMarkdown(mes, true);
     }
@@ -3823,6 +3834,7 @@ export function messageFormatting(mes, ch_name, isSystem, isUser, messageId, san
     }
 
     mes = restoreOocBlocksForDisplay(mes, oocBlocks);
+    mes = renderOocNotes(mes, isUser);
     // SillyBunny: card script detection - see #94.
     mes = markCardScriptHtml(mes, messageId, originalMessageHtml);
     return sanitizeMessageHtml(mes, sanitizerOverrides);
@@ -7281,7 +7293,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
             : [];
         const contextSourceMessage = hiddenCompanionHistory ? '' : originalMessage;
         const worldInfoContextSourceMessage = hiddenCompanionHistory ? '' : worldInfoSourceMessage;
-        let message = contextSourceMessage;
+        let message = chatItem.is_user ? resolveOocNotes(contextSourceMessage, sendsAfter(coreChat, index)) : contextSourceMessage;
         let regexType = chatItem.is_user ? regex_placement.USER_INPUT : regex_placement.AI_OUTPUT;
         let options = { isPrompt: true, depth: (coreChat.length - index - (isContinue ? 2 : 1)) };
 
@@ -11623,6 +11635,7 @@ export async function getSettings(initLoaderHandle = null) {
         // TODO: Move me into firstLoadInit when experimental toggle is removed
         // power_user.experimental_macro_engine
         initMacros();
+        initOocNotes();
 
         if (data.enable_extensions) {
             const enableAutoUpdate = Boolean(data.enable_extensions_auto_update);

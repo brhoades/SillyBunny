@@ -603,3 +603,62 @@
     margin: 0 -0.5em;
     border-radius: 4px;
 }
+
+/* =============================================================================
+   OOC NOTES
+   {{ooc::...}} annotations rendered inside a user message. "Active" means the
+   next send will still pass the note to the LLM; "spent" means it will not.
+   Class names carry the custom- prefix the message sanitizer adds to everything
+   inside .mes_text (chats.js uponSanitizeAttribute).
+   ============================================================================= */
+
+.mes_text .custom-comment,
+.mes_text .custom-comment-block {
+    color: var(--SmartThemeEmColor, #888);
+    font-size: 0.85em;
+}
+
+.mes_text .custom-comment {
+    font-family: var(--monoFontFamily, monospace);
+}
+
+.mes_text .custom-comment-block {
+    border: 1px dashed var(--SmartThemeBorderColor, #555);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    line-height: 1.7;
+}
+
+.mes_text .custom-comment-block blockquote {
+    border-left: 1px solid var(--SmartThemeBorderColor, #444);
+    padding-left: 10px;
+    margin: 8px 0;
+    color: var(--SmartThemeBodyColor, #aaa);
+}
+
+.mes_text .custom-comment-block > :first-child {
+    margin-top: 0;
+}
+
+.mes_text .custom-comment-block > :last-child {
+    margin-bottom: 0;
+}
+
+.mes_text .custom-ooc-active[data-ooc-count]::after {
+    content: attr(data-ooc-count);
+    font-family: var(--monoFontFamily, monospace);
+    font-size: 0.75em;
+    vertical-align: super;
+    margin-left: 0.25em;
+    opacity: 0.7;
+    color: var(--SmartThemeQuoteColor, #888);
+}
+
+.mes_text .custom-ooc-spent {
+    opacity: 0.55;
+}
+
+.mes_text .custom-comment-block.custom-ooc-spent {
+    border-style: solid;
+}
