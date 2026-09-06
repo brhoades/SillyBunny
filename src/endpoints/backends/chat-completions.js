@@ -3415,6 +3415,8 @@ export async function handleChatCompletionsGenerate(request, response) {
         }
     } catch (error) {
         if (isExpectedStreamAbort(error) || request.socket.destroyed) {
+            // SillyBunny: cancellations are expected, but silence made upstream hangups indistinguishable from success.
+            console.debug('Generation cancelled:', error?.code ?? error?.name ?? 'client disconnected', error?.message ?? '');
             if (!response.headersSent && !response.writableEnded) {
                 response.status(499).end();
             } else if (!response.writableEnded) {

@@ -887,6 +887,9 @@ export async function forwardFetchResponse(from, to, request = null, onDisconnec
                 return;
             }
 
+            // SillyBunny: the client went away mid-stream; the upstream generation is paid for and discarded.
+            console.debug('Client disconnected mid-stream; closing upstream response');
+
             try {
                 from.body?.destroy?.(); // Close the remote stream
             } catch {
@@ -905,6 +908,8 @@ export async function forwardFetchResponse(from, to, request = null, onDisconnec
         from.body.on('error', function (error) {
             stopPolling();
             if (isRequestCancellationError(error) || to.destroyed || to.writableEnded) {
+                // SillyBunny: expected on cancellation, but worth a trace when a stream dies early.
+                console.debug('Streaming request cancelled:', error?.code ?? error?.name ?? 'unknown', error?.message ?? '');
                 if (!to.destroyed && !to.writableEnded) {
                     to.end();
                 }

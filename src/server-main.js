@@ -63,6 +63,8 @@ import initPrivateRequestFilter from './private-request-filter.js';
 import cacheBuster from './middleware/cacheBuster.js';
 import corsProxyMiddleware from './middleware/corsProxy.js';
 import hostWhitelistMiddleware from './middleware/hostWhitelist.js';
+// SillyBunny: per-request logging; upstream only logs first sighting of an IP.
+import requestLoggerMiddleware from './middleware/requestLogger.js';
 import userCssMiddleware from './middleware/userCss.js';
 import { createUploadStorage } from './middleware/uploadStorage.js';
 import {
@@ -115,6 +117,8 @@ app.use(helmet({
 }));
 app.use(getResponseCompressionMiddleware());
 app.use(responseTime());
+// SillyBunny: registered early so auth, CORS and whitelist rejections are logged too.
+app.use(requestLoggerMiddleware());
 
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ extended: true, limit: '500mb' }));

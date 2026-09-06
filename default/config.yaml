@@ -189,6 +189,16 @@ logging:
   enableAccessLog: true
   # Minimum log level to display in the terminal (DEBUG = 0, INFO = 1, WARN = 2, ERROR = 3)
   minLogLevel: 1
+  # Per-request logging. Lines are emitted when the response ends, including when the
+  # client hangs up mid-response. Level follows the status: 5xx errors, 4xx and aborts
+  # warnings, everything else info, so minLogLevel still applies.
+  requestLog:
+    enabled: false
+    # Which requests to log:
+    # * "errors": only 4xx, 5xx and aborted responses (default)
+    # * "api": the above plus every /api/ request
+    # * "all": everything, including static assets
+    mode: errors
   # Per-generation prompt logging. These are read once at startup; changes need a restart.
   # Console output for each generation:
   # * "none": print nothing
