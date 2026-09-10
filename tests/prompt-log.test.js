@@ -214,6 +214,16 @@ describe('beginPromptLog', () => {
         expect((await logLines())[0].body.api_key).toBe('[redacted]');
     });
 
+    test('redacts credentials nested past the redact() depth limit', async () => {
+        let deep = { api_key: 'secret' };
+        for (let i = 0; i < 20; i++) deep = { nested: deep };
+        beginPromptLog({}, { api: 'openai', body: deep });
+
+        let body = (await logLines())[0].body;
+        while (body?.nested) body = body.nested;
+        expect(body.api_key).toBe('[redacted]');
+    });
+
     test('never throws on a malformed request', () => {
         expect(() => beginPromptLog(null, { api: 'openai' })).not.toThrow();
     });

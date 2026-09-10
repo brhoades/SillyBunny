@@ -14,6 +14,13 @@ const STREAM_TAP_LIMIT = 256 * 1024;
  */
 const MAX_LOGGED_STRING = 128 * 1024;
 
+/**
+ * Bytes allowed to queue in the sink before records are dropped. A serialized prompt can be
+ * tens of megabytes, so a disk that falls behind would otherwise make this debug log the
+ * largest memory consumer in the process.
+ */
+const MAX_PENDING_BYTES = 64 * 1024 * 1024;
+
 let settings = null;
 
 function getSettings() {
@@ -34,6 +41,7 @@ function getSettings() {
 let stream = null;
 let streamBytes = 0;
 let sinkDisabled = false;
+let sinkLagging = false;
 
 const logDir = () => path.join(globalThis.DATA_ROOT, getSettings().directory);
 const logPath = () => path.join(logDir(), 'prompts.jsonl');
@@ -78,7 +86,20 @@ function write(record) {
 
     try {
         if (!stream) openStream();
-        const line = JSON.stringify(record) + '\n';
+
+        if (stream.writableLength > MAX_PENDING_BYTES) {
+            if (!sinkLagging) {
+                sinkLagging = true;
+                console.warn('Prompt log sink is behind; dropping records until it drains.');
+            }
+            return;
+        }
+        if (sinkLagging) {
+            sinkLagging = false;
+            console.info('Prompt log sink caught up.');
+        }
+
+        const line = JSON.stringify(record, redactReplacer) + '\n';
         streamBytes += Buffer.byteLength(line);
         stream.write(line);
         if (streamBytes >= maxFileSize) rotate();
@@ -126,6 +147,7 @@ export function resetPromptLogSettingsForTests() {
     stream = null;
     streamBytes = 0;
     sinkDisabled = false;
+    sinkLagging = false;
 }
 
 const REDACTED_KEYS = new Set([
@@ -143,12 +165,18 @@ const SECRET_VALUE_PATTERNS = [
 ];
 const DATA_URL_PATTERN = /^data:[^;,]*;base64,/i;
 
+/** Deliberately looser than the patterns above, so a hit costs one scan and a miss skips three. */
+const SECRET_HINT_PATTERN = /:\/\/|bearer|sk-/i;
+
 /**
- * Scrubs credentials that live inside a string value.
+ * Scrubs credentials that live inside a string value. Prompts are megabytes of text that
+ * almost never hold one, so bail out before the replacements rather than during them.
  * @param {string} value Raw string
  * @returns {string} Scrubbed string
  */
 function redactString(value) {
+    if (!SECRET_HINT_PATTERN.test(value)) return value;
+
     let out = value.replace(URL_USERINFO_PATTERN, '$1[redacted]@');
     for (const pattern of SECRET_VALUE_PATTERNS) {
         out = out.replace(pattern, '[redacted]');
@@ -178,6 +206,24 @@ export function redact(value, depth = 0) {
         out[key] = REDACTED_KEYS.has(key.toLowerCase()) ? '[redacted]' : redact(item, depth + 1);
     }
     return out;
+}
+
+/**
+ * Redacts while serializing. `redact()` builds a full copy of the body that the very next
+ * JSON.stringify throws away; for a multi-megabyte prompt that copy is the largest
+ * allocation of the whole request, and a replacer never materializes it. Unlike `redact()`
+ * this has no depth limit, so credentials nested past 12 levels are also covered.
+ * Keep the rules in sync with `redact()`.
+ * @param {string} key
+ * @param {any} value
+ * @returns {any}
+ */
+function redactReplacer(key, value) {
+    if (REDACTED_KEYS.has(key.toLowerCase())) return '[redacted]';
+    if (typeof value !== 'string') return value;
+    if (DATA_URL_PATTERN.test(value)) return { chars: value.length, kind: 'data-url' };
+    if (value.length > MAX_LOGGED_STRING) return { chars: value.length };
+    return redactString(value);
 }
 
 const terminalWidth = () => Math.max(48, Math.min(process.stdout.columns || 100, 120));
@@ -274,6 +320,29 @@ function lastUserTurn(messages) {
 }
 
 /**
+ * Character count of the message contents, without building a string. Sizing the console
+ * header used to cost a JSON.stringify of the entire prompt.
+ * @param {any[]} messages Chat messages
+ * @returns {number} Total characters of message content
+ */
+function countMessageChars(messages) {
+    if (!Array.isArray(messages)) return 0;
+
+    let total = 0;
+    for (const message of messages) {
+        const content = message?.content;
+        if (typeof content === 'string') {
+            total += content.length;
+        } else if (Array.isArray(content)) {
+            for (const part of content) {
+                total += typeof part === 'string' ? part.length : part?.text?.length ?? 0;
+            }
+        }
+    }
+    return total;
+}
+
+/**
  * Best-effort text extraction from a parsed non-streamed completion response.
  * @param {any} body Response body
  * @returns {string} Response text
@@ -349,7 +418,7 @@ class PromptLog {
         this.hasTap = false;
 
         const promptText = prompt ?? lastUserTurn(messages);
-        const size = typeof prompt === 'string' ? prompt.length : JSON.stringify(messages ?? '').length;
+        const size = typeof prompt === 'string' ? prompt.length : countMessageChars(messages);
 
         write({
             ts: new Date().toISOString(),
@@ -359,7 +428,7 @@ class PromptLog {
             api,
             model,
             stream: this.streamed,
-            body: redact(body ?? { messages, prompt }),
+            body: body ?? { messages, prompt },
         });
 
         if (consoleMode === 'none') return;
@@ -385,7 +454,7 @@ class PromptLog {
      * @param {any} body Converted request body
      */
     upstream(label, body) {
-        write({ ts: new Date().toISOString(), id: this.id, kind: 'upstream', label, body: redact(body) });
+        write({ ts: new Date().toISOString(), id: this.id, kind: 'upstream', label, body });
     }
 
     /** Marks the moment the upstream response headers arrived. */
@@ -437,7 +506,7 @@ class PromptLog {
             ms: Math.round(ms),
             ttfbMs: Math.round(this.ttfbMs),
             bytes: this.streamed ? this.tappedBytes : undefined,
-            body: this.streamed ? undefined : redact(body),
+            body: this.streamed ? undefined : body,
         });
 
         const { consoleMode } = getSettings();
@@ -470,7 +539,7 @@ class PromptLog {
             status,
             ms: Math.round(this.elapsedMs),
             error: error instanceof Error ? error.stack : error,
-            body: redact(body),
+            body,
         });
     }
 
